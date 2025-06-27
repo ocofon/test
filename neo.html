@@ -54,11 +54,13 @@ async function onReadButtonClick() {
         log_msg('Connecting to GATT Server...');
         const server = await device.gatt.connect();
 
+
+        log_msg(device.gatt.connected)
         log_msg('Getting Service...');
         const service = await server.getPrimaryService(UARTService);
 
         log_msg('Getting Characteristic...');
-        const characteristic = await service.getCharacteristic(UARTCharRX);
+        const characteristic = await service.getCharacteristic(UARTCharRxTx);
 
         myCharacteristic = characteristic
         await myCharacteristic.startNotifications().then(_ => {
@@ -85,7 +87,7 @@ function handleNotifications(event) {
 }
 
 function sendMsg(text) {
-    lolog_msg('< ' + text)
+    log_msg('< ' + text)
     myCharacteristic.writeValue(hexStringToArrayBuffer(text))
 }
 
