@@ -24,7 +24,7 @@ async function BluetoothConnect() {
 
         myCharacteristic = characteristic
         await myCharacteristic.startNotifications().then(_ => {
-            log_msg('Notifications started');
+            log_msg('Notification Listener started');
             myCharacteristic.addEventListener('characteristicvaluechanged', handleNotifications);
         });
     } catch(error) {
@@ -34,12 +34,12 @@ async function BluetoothConnect() {
 
 async function BluetoothDisconnect() {
     if (myCharacteristic == null) {
-        log_msg("Not connected.")
+        log_msg("Bluetooth not connected.")
         return
     }
     await myCharacteristic.service.device.gatt.disconnect()
     document.querySelectorAll("[class=write_button]").forEach(el => el.disabled = true)
-    log_msg("Disconnected: " + myCharacteristic.service.device.gatt.connected);
+    log_msg("Bluetooth disconnected.");
     myCharacteristic=null;
 
 }
@@ -56,7 +56,8 @@ function handleNotifications(event) {
 
     if (value.getUint8([0]) == 0 && value.getUint8([1]) == 1&& value.getUint8([2]) == 2) {
         log_msg("Greeting OK, sending authentication");
-        sendMsg('004800060034011809db28bc2b2e7c802686e16267ace394acbcaca564be2a1390306706884c8d9a2b9b9cac2599c13f42cbff2228c8a673d1460d948572fe8ed234ae0463dc6fc2d75b');
+        sendMsg('004800060034011809db28bc2b2e7c802686e16267ace394acbcaca564be2a139030670688\
+                 4c8d9a2b9b9cac2599c13f42cbff2228c8a673d1460d948572fe8ed234ae0463dc6fc2d75b');
         return
     }
 
@@ -66,7 +67,7 @@ function handleNotifications(event) {
     }
 
     if (value.getUint8(5) == 19) {
-        log_msg("possible error detected, is Inverter not in Standby?")
+        log_msg("possible error detected, Inverter not in Standby?")
     }
 
     var crc = crc16(a.slice(0,-2).join("")).toString(16)
@@ -123,14 +124,8 @@ window.onload = function() {
     }
     document.querySelectorAll("[class=write_button]").forEach(el => el.disabled = true)
     log_msg("Page loaded")
-};
-
-function send_command() {
-    let command = document.getElementById("command").value
-    if (command && command.length > 10) {
-        sendMsg(command)
-    }
 }
+
 </script>
 <style type="text/css">
 div#divlog {
@@ -152,35 +147,26 @@ select {
 </head>
 <body>
 Bluetooth:&nbsp;
-<button onclick="BluetoothConnect();">Connect</button>&nbsp;&nbsp;
+<button onclick="BluetoothConnect();">Connect</button>
+&nbsp;&nbsp;
 <button onclick="BluetoothDisconnect();">Disconnect</button>
 <br /><br /><br />
-<button class="write_button" onclick="sendMsg('00280006001601177eae10895d0e16c26fd1348bd5c8e90c8c0b4f425d7540f146f50444f27861d1ddc3');">read register 0 (test)</button>
-<br /><br />
-<button class="write_button" onclick="sendMsg('00280006001601173dbc415207dbb6d220bc9405c0d1a771503ee5dd5bb9dc1b298160f5d6cbb6b615b7');">write register 0 -> 0</button>
-<br /><br />
-<button class="write_button" onclick="sendMsg('00280006001601179d356d59a2ee6e598e6872015db340978833e1bb481b8ca7fac7fc8f07ebdfa32b35');">write register 121 -> 6</button>
+<button class="write_button" onclick="sendMsg('00280006001601177eae10895d0e16c26fd1348bd5c8e90c8c0b4f425d7540f146f50444f27861d1ddc3');">read register 0 (Test Connection)</button>
+<br /><br /><hr>
+<h3>Set Inverter On/Off (Register 0)</h3>
+<button class="write_button" onclick="sendMsg('00280006001601173dbc415207dbb6d220bc9405c0d1a771503ee5dd5bb9dc1b298160f5d6cbb6b615b7');">set 0 (Set Inverter Off)</button>
 &nbsp;&nbsp;
-<button class="write_button" onclick="sendMsg('00280006001601179d356d59a2ee6e598e6872015db3409768a1235e8f9af74ac106e1fc7fcec58ebd30');">write register 121 -> 8</button>
+<button class="write_button" onclick="sendMsg('00280006001601173dbc415207dbb6d220bc9405c0d1a771c983ca9824710da815e71f91d1ccd3b986ef');">set 1 (Set Inverter On)</button>
+<br /><br /><hr>
+<h3>AC Max Power (Register 121)</h3>
+<button class="write_button" onclick="sendMsg('00280006001601179d356d59a2ee6e598e6872015db340978833e1bb481b8ca7fac7fc8f07ebdfa32b35');">set 6 (600 W)</button>
 &nbsp;&nbsp;
-<button class="write_button" onclick="sendMsg('00280006001601179d356d59a2ee6e598e6872015db340970d483c28d05e4ab0a80b78804ce6f76ae947');">write register 121 -> 10</button>
-<br /><br />
-<button class="write_button" onclick="sendMsg('00280006001601173dbc415207dbb6d220bc9405c0d1a771c983ca9824710da815e71f91d1ccd3b986ef');">write register 0 -> 1</button>
-<br /><br /><br />
-<!--
-<select id="command" class="write_button">
-    <option value="00280006001601177eae10895d0e16c26fd1348bd5c8e90c8c0b4f425d7540f146f50444f27861d1ddc3">read register 0 (test)</option>
-    <option value="00280006001601173dbc415207dbb6d220bc9405c0d1a771503ee5dd5bb9dc1b298160f5d6cbb6b615b7">write register 0 -> 0</option>
-    <option value="00280006001601179d356d59a2ee6e598e6872015db340978833e1bb481b8ca7fac7fc8f07ebdfa32b35">write register 121 -> 6</option>
-    <option value="00280006001601179d356d59a2ee6e598e6872015db3409768a1235e8f9af74ac106e1fc7fcec58ebd30">write register 121 -> 8</option>
-    <option value="00280006001601179d356d59a2ee6e598e6872015db340970d483c28d05e4ab0a80b78804ce6f76ae947">write register 121 -> 10</option>
-    <option value="00280006001601173dbc415207dbb6d220bc9405c0d1a771c983ca9824710da815e71f91d1ccd3b986ef">write register 0 -> 1</option>
-</select>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-<button class="write_button" onclick="send_command();">send command</button>
-<br /><br /><br />
--->
+<button class="write_button" onclick="sendMsg('00280006001601179d356d59a2ee6e598e6872015db3409768a1235e8f9af74ac106e1fc7fcec58ebd30');">set 8 (800 W)</button>
+&nbsp;&nbsp;
+<button class="write_button" onclick="sendMsg('00280006001601179d356d59a2ee6e598e6872015db340970d483c28d05e4ab0a80b78804ce6f76ae947');">set 10 (1000 W)</button>
+<br /><br /><hr>
+<br />
 <div id="divlog"></div>
-
 
 </body>
 </html>
