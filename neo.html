@@ -1,5 +1,6 @@
 <html>
     <head>
+        <title>Growatt NEO Bluetooth</title>
 <script>
 
 var myCharacteristic = null;
@@ -10,15 +11,15 @@ async function BluetoothConnect() {
     try {
         log_msg('Requesting Bluetooth Device...');
         const device = await navigator.bluetooth.requestDevice({
-            filters: [{namePrefix: 'QMN000B'}], optionalServices: [UARTService]});
+            filters: [{namePrefix: 'QMN000B'}], services: [UARTService]});
 
-        log_msg('Connecting to GATT Server...');
+        log_msg('Connecting to ' + device.name + ' GATT Server...');
         const server = await device.gatt.connect();
 
-        log_msg('Getting Service...');
+        log_msg('Getting Service ' + UARTService + ' ...');
         const service = await server.getPrimaryService(UARTService);
 
-        log_msg('Getting Characteristic...');
+        log_msg('Getting Characteristic ' + UARTCharRxTx + ' ...');
         const characteristic = await service.getCharacteristic(UARTCharRxTx);
 
         myCharacteristic = characteristic
@@ -29,6 +30,18 @@ async function BluetoothConnect() {
     } catch(error) {
         log_msg('Error! ' + error);
     }
+}
+
+async function BluetoothDisconnect() {
+    if (myCharacteristic == null) {
+        log_msg("Not connected.")
+        return
+    }
+    await myCharacteristic.service.device.gatt.disconnect()
+    document.querySelectorAll("[class=write_button]").forEach(el => el.disabled = true)
+    log_msg("Disconnected: " + myCharacteristic.service.device.gatt.connected);
+    myCharacteristic=null;
+
 }
 
 function handleNotifications(event) {
@@ -49,7 +62,7 @@ function handleNotifications(event) {
 
     if (value.getUint8([1]) == 24 && value.getUint8([7]) == 24) {
         log_msg("Authentication OK, ready for sending commands");
-        document.querySelectorAll("button[class=write_button]").forEach(el => el.disabled = false);
+        document.querySelectorAll("[class=write_button]").forEach(el => el.disabled = false);
     }
 
     if (value.getUint8(5) == 19) {
@@ -75,7 +88,7 @@ function sendMsg(text) {
 function log_msg(logtext) {
     logSelect = document.getElementById('divlog');
     var date = new Date();
-    logSelect.innerHTML += date.toLocaleDateString() + " " + date.toLocaleTimeString()+ ": " + logtext + "<br/>"
+    logSelect.innerHTML += date.toLocaleTimeString()+ " - " + logtext + "<br/>"
     logSelect.scrollTop = logSelect.scrollHeight;
 }
 
@@ -108,45 +121,64 @@ window.onload = function() {
         document.children[0].innerHTML="Error. Bluetooth is not available."
         return
     }
-    document.querySelectorAll("button[class=write_button]").forEach(el => el.disabled = true)
+    document.querySelectorAll("[class=write_button]").forEach(el => el.disabled = true)
     log_msg("Page loaded")
 };
 
+function send_command() {
+    let command = document.getElementById("command").value
+    if (command && command.length > 10) {
+        sendMsg(command)
+    }
+}
 </script>
 <style type="text/css">
-#divlog {
-    width: 800px;
+div#divlog {
+    width: 750px;
     height: 200px;
-    scroll-behavior: smooth;
     border: 1px solid black;
-    overflow:scroll;
+    overflow: scroll;
     resize: both;
+    font-size: 14px;
+    text-size-adjust:none;
+    white-space: nowrap;
 }
 
-
+select {
+    font-size: 20px;
+    text-size-adjust:none;
+}
 </style>
 </head>
 <body>
-
-<button onclick="BluetoothConnect();">Connect</button>
+Bluetooth:&nbsp;
+<button onclick="BluetoothConnect();">Connect</button>&nbsp;&nbsp;
+<button onclick="BluetoothDisconnect();">Disconnect</button>
+<br /><br /><br />
+<button class="write_button" onclick="sendMsg('00280006001601177eae10895d0e16c26fd1348bd5c8e90c8c0b4f425d7540f146f50444f27861d1ddc3');">read register 0 (test)</button>
 <br /><br />
-<button class="write_button" onclick="sendMsg('00280006001601177eae10895d0e16c26fd1348bd5c8e90c8c0b4f425d7540f146f50444f27861d1ddc3');">Send read register 0 (test)</button>
+<button class="write_button" onclick="sendMsg('00280006001601173dbc415207dbb6d220bc9405c0d1a771503ee5dd5bb9dc1b298160f5d6cbb6b615b7');">write register 0 -> 0</button>
 <br /><br />
-<button class="write_button" onclick="sendMsg('00280006001601173dbc415207dbb6d220bc9405c0d1a771503ee5dd5bb9dc1b298160f5d6cbb6b615b7');">Send write register 0 -> 0</button>
-<br /><br />
-<button class="write_button" onclick="sendMsg('00280006001601179d356d59a2ee6e598e6872015db340978833e1bb481b8ca7fac7fc8f07ebdfa32b35');">Send write register 121 -> 6</button>
+<button class="write_button" onclick="sendMsg('00280006001601179d356d59a2ee6e598e6872015db340978833e1bb481b8ca7fac7fc8f07ebdfa32b35');">write register 121 -> 6</button>
 &nbsp;&nbsp;
-<button class="write_button" onclick="sendMsg('00280006001601179d356d59a2ee6e598e6872015db3409768a1235e8f9af74ac106e1fc7fcec58ebd30');">Send write register 121 -> 8</button>
+<button class="write_button" onclick="sendMsg('00280006001601179d356d59a2ee6e598e6872015db3409768a1235e8f9af74ac106e1fc7fcec58ebd30');">write register 121 -> 8</button>
 &nbsp;&nbsp;
-<button class="write_button" onclick="sendMsg('00280006001601179d356d59a2ee6e598e6872015db340970d483c28d05e4ab0a80b78804ce6f76ae947');">Send write register 121 -> 10</button>
+<button class="write_button" onclick="sendMsg('00280006001601179d356d59a2ee6e598e6872015db340970d483c28d05e4ab0a80b78804ce6f76ae947');">write register 121 -> 10</button>
 <br /><br />
-<button class="write_button" onclick="sendMsg('00280006001601173dbc415207dbb6d220bc9405c0d1a771c983ca9824710da815e71f91d1ccd3b986ef');">Send write register 0 -> 1</button>
-&nbsp;&nbsp;
-<br />
-<br />
-<br>
-<br>
-
+<button class="write_button" onclick="sendMsg('00280006001601173dbc415207dbb6d220bc9405c0d1a771c983ca9824710da815e71f91d1ccd3b986ef');">write register 0 -> 1</button>
+<br /><br /><br />
+<!--
+<select id="command" class="write_button">
+    <option value="00280006001601177eae10895d0e16c26fd1348bd5c8e90c8c0b4f425d7540f146f50444f27861d1ddc3">read register 0 (test)</option>
+    <option value="00280006001601173dbc415207dbb6d220bc9405c0d1a771503ee5dd5bb9dc1b298160f5d6cbb6b615b7">write register 0 -> 0</option>
+    <option value="00280006001601179d356d59a2ee6e598e6872015db340978833e1bb481b8ca7fac7fc8f07ebdfa32b35">write register 121 -> 6</option>
+    <option value="00280006001601179d356d59a2ee6e598e6872015db3409768a1235e8f9af74ac106e1fc7fcec58ebd30">write register 121 -> 8</option>
+    <option value="00280006001601179d356d59a2ee6e598e6872015db340970d483c28d05e4ab0a80b78804ce6f76ae947">write register 121 -> 10</option>
+    <option value="00280006001601173dbc415207dbb6d220bc9405c0d1a771c983ca9824710da815e71f91d1ccd3b986ef">write register 0 -> 1</option>
+</select>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<button class="write_button" onclick="send_command();">send command</button>
+<br /><br /><br />
+-->
 <div id="divlog"></div>
 
 
