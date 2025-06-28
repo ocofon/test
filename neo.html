@@ -2,51 +2,12 @@
     <head>
 <script>
 
-
-var myCharacteristic;
-
+var myCharacteristic = null;
 let UARTService = "000000ff-0000-1000-8000-00805f9b34fb"
 let UARTCharRxTx = "0000ff01-0000-1000-8000-00805f9b34fb"
 
-
-
-function hexStringToArrayBuffer(hexString) {
-    // remove the leading 0x
-    hexString = hexString.replace(/^0x/, '');
-    
-    // ensure even number of characters
-    if (hexString.length % 2 != 0) {
-        console.log('WARNING: expecting an even number of characters in the hexString');
-    }
-    
-    // check for some non-hex characters
-    var bad = hexString.match(/[G-Z\s]/i);
-    if (bad) {
-        console.log('WARNING: found non-hex characters', bad);    
-    }
-    
-    // split the string into pairs of octets
-    var pairs = hexString.match(/[\dA-F]{2}/gi);
-    
-    // convert the octets to integers
-    var integers = pairs.map(function(s) {
-        return parseInt(s, 16);
-    });
-    
-    var array = new Uint8Array(integers);
-    //console.log(array);
-    
-    return array.buffer;
-}
-
-async function onReadButtonClick() {
-
+async function BluetoothConnect() {
     try {
-
-        //let filters = [];
-        //filters.push({namePrefix: 'QMN000B'});
-
-
         log_msg('Requesting Bluetooth Device...');
         const device = await navigator.bluetooth.requestDevice({
             filters: [{namePrefix: 'QMN000B'}], optionalServices: [UARTService]});
@@ -54,8 +15,6 @@ async function onReadButtonClick() {
         log_msg('Connecting to GATT Server...');
         const server = await device.gatt.connect();
 
-
-        log_msg(device.gatt.connected)
         log_msg('Getting Service...');
         const service = await server.getPrimaryService(UARTService);
 
@@ -64,13 +23,9 @@ async function onReadButtonClick() {
 
         myCharacteristic = characteristic
         await myCharacteristic.startNotifications().then(_ => {
-        log_msg('> Notifications started');
-        myCharacteristic.addEventListener('characteristicvaluechanged',
-            handleNotifications);
+            log_msg('Notifications started');
+            myCharacteristic.addEventListener('characteristicvaluechanged', handleNotifications);
         });
-        
-        log_msg('Setting Characteristic User Description...');
-
     } catch(error) {
         log_msg('Error! ' + error);
     }
@@ -83,47 +38,117 @@ function handleNotifications(event) {
     for (let i = 0; i < value.byteLength; i++) {
         a.push(('00' + value.getUint8(i).toString(16)).slice(-2));
     }
-    log_msg(value.byteLength+' > ' + a.join(' '));
+
+    log_msg('recv('+value.byteLength+'): ' + a.join(''));    
+
+    if (value.getUint8([0]) == 0 && value.getUint8([1]) == 1&& value.getUint8([2]) == 2) {
+        log_msg("Greeting OK, sending authentication");
+        sendMsg('004800060034011809db28bc2b2e7c802686e16267ace394acbcaca564be2a1390306706884c8d9a2b9b9cac2599c13f42cbff2228c8a673d1460d948572fe8ed234ae0463dc6fc2d75b');
+        return
+    }
+
+    if (value.getUint8([1]) == 24 && value.getUint8([7]) == 24) {
+        log_msg("Authentication OK, ready for sending commands");
+        document.querySelectorAll("button[class=write_button]").forEach(el => el.disabled = false);
+    }
+
+    if (value.getUint8(5) == 19) {
+        log_msg("possible error detected, is Inverter not in Standby?")
+    }
+
+    var crc = crc16(a.slice(0,-2).join("")).toString(16)
+    if (parseInt(crc, 16) != parseInt(a.slice(-2).join(""), 16)) {
+        log_msg("CRC Error, skip message" + crc)
+        return
+    }
 }
 
 function sendMsg(text) {
-    log_msg('< ' + text)
-    myCharacteristic.writeValue(hexStringToArrayBuffer(text))
+    if (myCharacteristic == null) {
+        log_msg("Not connected.")
+        return
+    }
+    log_msg('send('+text.length/2+'): ' + text)
+    myCharacteristic.writeValue(hex2ab(text))
 }
 
 function log_msg(logtext) {
-    logSelect = document.getElementById('log');
-    logSelect.options[logSelect.options.length] = new Option(logtext);
+    logSelect = document.getElementById('divlog');
+    var date = new Date();
+    logSelect.innerHTML += date.toLocaleDateString() + " " + date.toLocaleTimeString()+ ": " + logtext + "<br/>"
+    logSelect.scrollTop = logSelect.scrollHeight;
+}
+
+function crc16(buffer) {
+    buffer = hex2ab(buffer)
+    var crc = 0xFFFF;
+    var odd;
+
+    for (var i = 0; i < buffer.length; i++) {
+        crc = crc ^ buffer[i];
+
+        for (var j = 0; j < 8; j++) {
+            odd = crc & 0x0001;
+            crc = crc >> 1;
+            if (odd) {
+                crc = crc ^ 0xA001;
+            }
+        }
+    }
+
+    return crc;
+};
+
+function hex2ab(hex){
+    return new Uint8Array(hex.match(/[\da-f]{2}/gi).map(function (h) {return parseInt(h, 16)}));
+}
+
+window.onload = function() {
+    if (!navigator.bluetooth) {
+        document.children[0].innerHTML="Error. Bluetooth is not available."
+        return
+    }
+    document.querySelectorAll("button[class=write_button]").forEach(el => el.disabled = true)
+    log_msg("Page loaded")
+};
+
+</script>
+<style type="text/css">
+#divlog {
+    width: 800px;
+    height: 200px;
+    scroll-behavior: smooth;
+    border: 1px solid black;
+    overflow:scroll;
+    resize: both;
 }
 
 
-
-</script>
+</style>
 </head>
 <body>
 
-<button onclick="onReadButtonClick();">Connect</button>
-&nbsp;&nbsp;
-<button onclick="sendMsg('004800060034011809db28bc2b2e7c802686e16267ace394acbcaca564be2a1390306706884c8d9a2b9b9cac2599c13f42cbff2228c8a673d1460d948572fe8ed234ae0463dc6fc2d75b');">Send auth</button>
+<button onclick="BluetoothConnect();">Connect</button>
 <br /><br />
-<button onclick="sendMsg('00280006001601173dbc415207dbb6d220bc9405c0d1a771503ee5dd5bb9dc1b298160f5d6cbb6b615b7');">Send write register 0 -> 0</button>
+<button class="write_button" onclick="sendMsg('00280006001601177eae10895d0e16c26fd1348bd5c8e90c8c0b4f425d7540f146f50444f27861d1ddc3');">Send read register 0 (test)</button>
 <br /><br />
-<button onclick="sendMsg('00280006001601179d356d59a2ee6e598e6872015db340978833e1bb481b8ca7fac7fc8f07ebdfa32b35');">Send write register 121 -> 6</button>
-&nbsp;&nbsp;
-<button onclick="sendMsg('00280006001601179d356d59a2ee6e598e6872015db3409768a1235e8f9af74ac106e1fc7fcec58ebd30');">Send write register 121 -> 8</button>
-&nbsp;&nbsp;
-<button onclick="sendMsg('00280006001601179d356d59a2ee6e598e6872015db340970d483c28d05e4ab0a80b78804ce6f76ae947');">Send write register 121 -> 10</button>
+<button class="write_button" onclick="sendMsg('00280006001601173dbc415207dbb6d220bc9405c0d1a771503ee5dd5bb9dc1b298160f5d6cbb6b615b7');">Send write register 0 -> 0</button>
 <br /><br />
-<button onclick="sendMsg('00280006001601173dbc415207dbb6d220bc9405c0d1a771c983ca9824710da815e71f91d1ccd3b986ef');">Send write register 0 -> 1</button>
+<button class="write_button" onclick="sendMsg('00280006001601179d356d59a2ee6e598e6872015db340978833e1bb481b8ca7fac7fc8f07ebdfa32b35');">Send write register 121 -> 6</button>
 &nbsp;&nbsp;
+<button class="write_button" onclick="sendMsg('00280006001601179d356d59a2ee6e598e6872015db3409768a1235e8f9af74ac106e1fc7fcec58ebd30');">Send write register 121 -> 8</button>
+&nbsp;&nbsp;
+<button class="write_button" onclick="sendMsg('00280006001601179d356d59a2ee6e598e6872015db340970d483c28d05e4ab0a80b78804ce6f76ae947');">Send write register 121 -> 10</button>
+<br /><br />
+<button class="write_button" onclick="sendMsg('00280006001601173dbc415207dbb6d220bc9405c0d1a771c983ca9824710da815e71f91d1ccd3b986ef');">Send write register 0 -> 1</button>
+&nbsp;&nbsp;
+<br />
+<br />
 <br>
 <br>
-<br>
-<select id ="log" size="30" style="width: 750px;" multiple>
 
+<div id="divlog"></div>
 
-
-</select>
 
 </body>
 </html>
