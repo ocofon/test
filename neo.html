@@ -12,9 +12,7 @@ async function BluetoothConnect() {
         log_msg('Requesting Bluetooth Device...');
         const device = await navigator.bluetooth.requestDevice({
             filters: [
-                {
-                    namePrefix: 'QMN000B',
-                }
+                {namePrefix: 'QMN000B'}
             ],
             optionalServices: [UARTService]
         });
@@ -63,7 +61,7 @@ function handleNotifications(event) {
     if (value.getUint8([0]) == 0 && value.getUint8([1]) == 1&& value.getUint8([2]) == 2) {
         log_msg("Greeting OK, sending authentication");
         sendMsg('004800060034011809db28bc2b2e7c802686e16267ace394acbcaca564be2a139030670688\
-                 4c8d9a2b9b9cac2599c13f42cbff2228c8a673d1460d948572fe8ed234ae0463dc6fc2d75b');
+                4c8d9a2b9b9cac2599c13f42cbff2228c8a673d1460d948572fe8ed234ae0463dc6fc2d75b');
         return
     }
 
