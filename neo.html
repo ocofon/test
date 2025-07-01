@@ -11,7 +11,7 @@ async function BluetoothConnect() {
     try {
         log_msg('Requesting Bluetooth Device...');
         const device = await navigator.bluetooth.requestDevice({
-            filters: [{namePrefix: 'QMN000B'}], services: [UARTService]});
+            filters: [{namePrefix: 'QMN000B'}], services: [UARTService], optionalServices: [UARTService]});
 
         log_msg('Connecting to ' + device.name + ' GATT Server...');
         const server = await device.gatt.connect();
